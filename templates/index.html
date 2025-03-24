@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Merge</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #pdf-preview {
+            width: 100%;
+            height: 80vh;
+            border: 1px solid #ddd;
+        }
+        .container-fluid {
+            max-width: 90%;
+        }
+    </style>
+    <script>
+        let uploadedFiles = [];
+
+        function uploadFile() {
+            let input = document.getElementById("pdfs");
+            let file = input.files[0];
+            if (!file) return;
+
+            let formData = new FormData();
+            formData.append("pdf", file);
+
+            fetch("/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    uploadedFiles = data.files;
+                    updateFileList();
+                    updatePreview(uploadedFiles[0]);
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function updateFileList() {
+            let fileList = document.getElementById("file-list");
+            fileList.innerHTML = "";
+            uploadedFiles.forEach((filename, index) => {
+                let li = document.createElement("li");
+                li.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center");
+                li.innerHTML = `
+                    <span>${filename}</span>
+                    <div>
+                        <button class='btn btn-sm btn-secondary' onclick='moveFile(${index}, -1)' ${index === 0 ? "disabled" : ""}>⬆</button>
+                        <button class='btn btn-sm btn-secondary' onclick='moveFile(${index}, 1)' ${index === uploadedFiles.length - 1 ? "disabled" : ""}>⬇</button>
+                        <button class='btn btn-sm btn-danger' onclick='deleteFile("${filename}")'>Hapus</button>
+                        <button class='btn btn-sm btn-info' onclick='updatePreview("${filename}")'>Preview</button>
+                    </div>`;
+                fileList.appendChild(li);
+            });
+        }
+
+        function moveFile(index, direction) {
+            let newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= uploadedFiles.length) return;
+            
+            [uploadedFiles[index], uploadedFiles[newIndex]] = [uploadedFiles[newIndex], uploadedFiles[index]];
+            updateFileList();
+        }
+
+        function updatePreview(filename) {
+            let previewFrame = document.getElementById("pdf-preview");
+            if (filename) {
+                previewFrame.src = `/uploads/${filename}#view=FitH`;
+            } else {
+                previewFrame.src = "";
+            }
+        }
+
+        function deleteFile(filename) {
+            fetch("/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename: filename })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    uploadedFiles = data.files;
+                    updateFileList();
+                }
+            })
+            .catch(error => console.error("Error deleting file:", error));
+        }
+
+        function mergePDFs() {
+            fetch("/merge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ files: uploadedFiles })
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                let link = document.createElement("a");
+                link.href = window.URL.createObjectURL(blob);
+                link.download = "merged.pdf";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })
+            .catch(error => console.error("Error merging PDFs:", error));
+        }
+    </script>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-5">
+        <h2 class="text-center">Merge PDF Files</h2>
+        <div class="row">
+            <div class="col-md-5">
+                <form id="upload-form" class="p-4 bg-white shadow rounded" onsubmit="return false;">
+                    <div class="mb-3">
+                        <label for="pdfs" class="form-label">Upload PDF Files</label>
+                        <input type="file" class="form-control" id="pdfs" required onchange="uploadFile()">
+                    </div>
+                    <ul id="file-list" class="list-group mb-3"></ul>
+                    <button type="button" class="btn btn-primary w-100" onclick="mergePDFs()">Merge PDFs</button>
+                </form>
+            </div>
+            <div class="col-md-7">
+                <div id="preview-container" class="p-4 bg-white shadow rounded">
+                    <h5>PDF Preview</h5>
+                    <iframe id="pdf-preview"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
