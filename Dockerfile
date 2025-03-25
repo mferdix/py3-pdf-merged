@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.9
 
 WORKDIR /app
 
@@ -7,6 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT ["python", "app.py"]
-
-EXPOSE 5000
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]

@@ -1,4 +1,4 @@
 flask
-werkzeug
-pypdf2
-flask-cors
+pymupdf
+gunicorn
+PyPDF2
